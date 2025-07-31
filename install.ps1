@@ -30,11 +30,11 @@ Write-Host "Downloading package from $zipUrl..."
 try {
     Invoke-WebRequest -Uri $zipUrl -OutFile $zipFile -UseBasicParsing
 } catch {
-    Write-Host "Failed to download the package. Please check your internet connection."
+    Write-Host "❌ Failed to download the package. Please check your internet connection."
     exit
 }
 
-# 解压
+# 解压目录
 Write-Host "Extracting to $installDir..."
 if (Test-Path $installDir) {
     Remove-Item -Recurse -Force $installDir
@@ -46,7 +46,7 @@ Write-Host "Searching for vn-link-cli.exe..."
 $vnCli = Get-ChildItem -Path $installDir -Filter "vn-link-cli.exe" -Recurse -File | Select-Object -First 1
 
 if (-not $vnCli) {
-    Write-Host "vn-link-cli.exe not found after extraction."
+    Write-Host "❌ vn-link-cli.exe not found after extraction."
     exit
 }
 
@@ -62,14 +62,17 @@ function Get-RandomAlphaNumeric {
     return $string
 }
 
-# 生成参数
+# 生成唯一参数
 $token = Get-RandomAlphaNumeric
-$password = Get-RandomAlphaNumeric
+do {
+    $password = Get-RandomAlphaNumeric
+} while ($password -eq $token)
+
 $device = Get-RandomAlphaNumeric
 $ports = "58088,58089"
 
 # 显示参数
-Write-Host "`nGenerated parameters:"
+Write-Host "`n✅ Generated parameters:"
 Write-Host "Token:    $token"
 Write-Host "Password: $password"
 Write-Host "Device:   $device"
@@ -78,19 +81,24 @@ Write-Host "Ports:    $ports`n"
 # 执行命令
 $exePath = $vnCli.FullName
 $workingDir = Split-Path $exePath
-
 $arguments = "-k $token -w $password -W --ports $ports -d $device -o 0.0.0.0/0"
 
-Write-Host "Running vn-link-cli.exe..."
+Write-Host "🚀 Running vn-link-cli.exe..."
 try {
     Start-Process -FilePath $exePath -WorkingDirectory $workingDir -ArgumentList $arguments -NoNewWindow -Wait
 } catch {
-    Write-Host "Failed to start vn-link-cli.exe"
+    Write-Host "❌ Failed to start vn-link-cli.exe"
     exit
 }
 
-Write-Host @'
-Done!
+Write-Host @"
+🎉 Done!
 
-vn-link-cli.exe executed successfully with the above parameters.
-'@
+vn-link-cli.exe executed successfully with the following parameters:
+------------------------------------------------------
+Token:    $token
+Password: $password
+Device:   $device
+Ports:    $ports
+------------------------------------------------------
+"@
