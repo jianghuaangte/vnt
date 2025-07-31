@@ -14,19 +14,18 @@ if ($IsMacOS -or $IsLinux) {
     exit
 }
 
-# 检查管理员权限
+# 检查是否管理员权限
 if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
     [Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Warning "Please run this script as Administrator."
     exit
 }
 
-# 下载配置
 $zipUrl = "https://gitcode.com/freedom3z/vnt/releases/download/v1.0/vnt.zip"
 $installDir = "C:\Program Files\vnt"
 $zipFile = Join-Path $env:TEMP "vnt.zip"
 
-Write-Host "Downloading vnt package from $zipUrl..."
+Write-Host "Downloading package from $zipUrl..."
 
 try {
     Invoke-WebRequest -Uri $zipUrl -OutFile $zipFile -UseBasicParsing
@@ -35,14 +34,23 @@ try {
     exit
 }
 
-# 解压目录处理
+# 解压
 Write-Host "Extracting to $installDir..."
 if (Test-Path $installDir) {
     Remove-Item -Recurse -Force $installDir
 }
 Expand-Archive -LiteralPath $zipFile -DestinationPath $installDir
 
-# 随机字符串生成函数
+# 查找 vn-link-cli.exe
+Write-Host "Searching for vn-link-cli.exe..."
+$vnCli = Get-ChildItem -Path $installDir -Filter "vn-link-cli.exe" -Recurse -File | Select-Object -First 1
+
+if (-not $vnCli) {
+    Write-Host "vn-link-cli.exe not found after extraction."
+    exit
+}
+
+# 生成随机字符串的函数
 function Get-RandomAlphaNumeric {
     param([int]$Length = 12)
     $chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -54,34 +62,35 @@ function Get-RandomAlphaNumeric {
     return $string
 }
 
-# 参数生成
-$token = Get-RandomAlphaNumeric -Length 12
-$password = Get-RandomAlphaNumeric -Length 12
-$device = Get-RandomAlphaNumeric -Length 12
+# 生成参数
+$token = Get-RandomAlphaNumeric
+$password = Get-RandomAlphaNumeric
+$device = Get-RandomAlphaNumeric
 $ports = "58088,58089"
-$output = "-k $token -w $password -d $device"
 
-Write-Host "Generated parameters:"
-Write-Host $output
+# 显示参数
+Write-Host "`nGenerated parameters:"
+Write-Host "Token:    $token"
+Write-Host "Password: $password"
+Write-Host "Device:   $device"
+Write-Host "Ports:    $ports`n"
 
 # 执行命令
-$exePath = Join-Path $installDir "vn-link-cli.exe"
-if (-not (Test-Path $exePath)) {
-    Write-Error "vn-link-cli.exe not found in extracted directory!"
+$exePath = $vnCli.FullName
+$workingDir = Split-Path $exePath
+
+$arguments = "-k $token -w $password -W --ports $ports -d $device -o 0.0.0.0/0"
+
+Write-Host "Running vn-link-cli.exe..."
+try {
+    Start-Process -FilePath $exePath -WorkingDirectory $workingDir -ArgumentList $arguments -NoNewWindow -Wait
+} catch {
+    Write-Host "Failed to start vn-link-cli.exe"
     exit
 }
 
-Write-Host "Launching vn-link-cli.exe..."
-Start-Process -FilePath $exePath -WorkingDirectory $installDir -ArgumentList "-k $token -w $password -W --ports $ports -d $device -o 0.0.0.0/0" -NoNewWindow -Wait
-
-Write-Host @"
+Write-Host @'
 Done!
 
-Your VNT service is now running with the following:
-Token:    $token
-Password: $password
-Device:   $device
-Ports:    $ports
-
-Check the output for any runtime messages.
-"@
+vn-link-cli.exe executed successfully with the above parameters.
+'@
