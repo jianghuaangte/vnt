@@ -15,8 +15,7 @@ if ($IsMacOS -or $IsLinux) {
 }
 
 # 检查是否管理员权限
-if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
-    [Security.Principal.WindowsBuiltInRole] "Administrator")) {
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Warning "Please run this script as Administrator."
     exit
 }
@@ -56,7 +55,7 @@ function Get-RandomAlphaNumeric {
     $chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     $random = New-Object System.Random
     $string = ""
-    1..$Length | ForEach-Object {
+    for ($i = 1; $i -le $Length; $i++) {
         $string += $chars[$random.Next(0, $chars.Length)]
     }
     return $string
@@ -88,26 +87,26 @@ while ($retryCount -lt $maxRetries -and -not $fetchSuccess) {
     
     if ($retryCount -gt 1) {
         Write-Host "Retry attempt $retryCount of $maxRetries..."
-        Start-Sleep -Seconds 2  # 等待2秒后重试
+        Start-Sleep -Seconds 2
     }
     
     try {
         $response = Invoke-WebRequest -Uri $acceleratedUrl -UseBasicParsing
         $token = $response.Content.Trim()
         
-        # 检查内容是否为空
         if (-not [string]::IsNullOrEmpty($token)) {
             $fetchSuccess = $true
             Write-Host "✅ Token fetched successfully on attempt $retryCount."
-        } else {
+        }
+        else {
             Write-Host "⚠️ Token content is empty (attempt $retryCount of $maxRetries)."
         }
-    } catch {
+    }
+    catch {
         Write-Host "⚠️ Failed to fetch token (attempt $retryCount of $maxRetries): $($_.Exception.Message)"
     }
 }
 
-# 检查是否成功获取非空 token
 if (-not $fetchSuccess) {
     Write-Host "❌ Failed to fetch valid token after $maxRetries attempts. Exiting."
     exit
@@ -121,11 +120,13 @@ $device = Get-RandomAlphaNumeric
 $ports = "58088,58089"
 
 # 显示参数
-Write-Host "`n✅ Generated parameters:"
+Write-Host ""
+Write-Host "✅ Generated parameters:"
 Write-Host "Token:    $token"
 Write-Host "Password: $password"
 Write-Host "Device:   $device"
-Write-Host "Ports:    $ports`n"
+Write-Host "Ports:    $ports"
+Write-Host ""
 
 # 执行命令
 $exePath = $vnCli.FullName
@@ -135,19 +136,19 @@ $arguments = "-k $token -w $password -W --ports $ports -d $device -o 0.0.0.0/0"
 Write-Host "🚀 Running vn-link-cli.exe..."
 try {
     Start-Process -FilePath $exePath -WorkingDirectory $workingDir -ArgumentList $arguments -NoNewWindow -Wait
-} catch {
+}
+catch {
     Write-Host "❌ Failed to start vn-link-cli.exe"
     exit
 }
 
-Write-Host @"
-🎉 Done!
-
-vn-link-cli.exe executed successfully with the following parameters:
-------------------------------------------------------
-Token:    $token
-Password: $password
-Device:   $device
-Ports:    $ports
-------------------------------------------------------
-"@
+Write-Host ""
+Write-Host "🎉 Done!"
+Write-Host ""
+Write-Host "vn-link-cli.exe executed successfully with the following parameters:"
+Write-Host "------------------------------------------------------"
+Write-Host "Token:    $token"
+Write-Host "Password: $password"
+Write-Host "Device:   $device"
+Write-Host "Ports:    $ports"
+Write-Host "------------------------------------------------------"
