@@ -127,3 +127,7 @@ Device:   $device
 Ports:    $ports
 ------------------------------------------------------
 "@
+
+Write-Host ""
+Write-Host "Press Enter to exit..."
+Read-Host
