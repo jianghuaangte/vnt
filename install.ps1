@@ -62,26 +62,7 @@ function Get-RandomAlphaNumeric {
     return $string
 }
 
-# 设置 GitHub 加速地址
-$githubAccelerator = "https://ghfast.top/"
-$codeUrl = "https://raw.githubusercontent.com/jianghuaangte/vnt-code/refs/heads/main/code.txt"
-$acceleratedUrl = $githubAccelerator + $codeUrl
-
-Write-Host "Fetching token from $acceleratedUrl ..."
-
-try {
-    $token = (Invoke-WebRequest -Uri $acceleratedUrl -UseBasicParsing).Content.Trim()
-    if ([string]::IsNullOrEmpty($token)) {
-        Write-Host "❌ Token fetched is empty. Exiting."
-        exit
-    }
-    Write-Host "✅ Token fetched successfully."
-} catch {
-    Write-Host "❌ Failed to fetch token from $acceleratedUrl. Please check your internet connection."
-    exit
-}
-
-# 生成 Password (Token 的反值)
+# 反转字符串的函数
 function Reverse-String {
     param([string]$InputString)
     $charArray = $InputString.ToCharArray()
@@ -89,6 +70,50 @@ function Reverse-String {
     return -join $charArray
 }
 
+# 设置 GitHub 加速地址
+$githubAccelerator = "https://ghfast.top/"
+$codeUrl = "https://raw.githubusercontent.com/jianghuaangte/vnt-code/refs/heads/main/code.txt"
+$acceleratedUrl = $githubAccelerator + $codeUrl
+
+Write-Host "Fetching token from $acceleratedUrl ..."
+
+# 重试机制：最多尝试3次
+$maxRetries = 3
+$retryCount = 0
+$token = $null
+$fetchSuccess = $false
+
+while ($retryCount -lt $maxRetries -and -not $fetchSuccess) {
+    $retryCount++
+    
+    if ($retryCount -gt 1) {
+        Write-Host "Retry attempt $retryCount of $maxRetries..."
+        Start-Sleep -Seconds 2  # 等待2秒后重试
+    }
+    
+    try {
+        $response = Invoke-WebRequest -Uri $acceleratedUrl -UseBasicParsing
+        $token = $response.Content.Trim()
+        
+        # 检查内容是否为空
+        if (-not [string]::IsNullOrEmpty($token)) {
+            $fetchSuccess = $true
+            Write-Host "✅ Token fetched successfully on attempt $retryCount."
+        } else {
+            Write-Host "⚠️ Token content is empty (attempt $retryCount of $maxRetries)."
+        }
+    } catch {
+        Write-Host "⚠️ Failed to fetch token (attempt $retryCount of $maxRetries): $($_.Exception.Message)"
+    }
+}
+
+# 检查是否成功获取非空 token
+if (-not $fetchSuccess) {
+    Write-Host "❌ Failed to fetch valid token after $maxRetries attempts. Exiting."
+    exit
+}
+
+# 生成 Password (Token 的反值)
 $password = Reverse-String -InputString $token
 
 # 生成其他参数 (保持原样)
