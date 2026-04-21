@@ -50,71 +50,43 @@ if (-not $vnCli) {
     exit
 }
 
-# 生成随机字符串的函数 (用于device)
+# -------------------------------
+# GitHub token 获取（带加速）
+# -------------------------------
+$githubProxy = "https://ghfast.top/"
+$tokenUrl = "https://raw.githubusercontent.com/jianghuaangte/vnt-code/refs/heads/main/code.txt"
+$finalTokenUrl = $githubProxy + $tokenUrl
+
+Write-Host "Fetching token from $finalTokenUrl ..."
+
+try {
+    $token = (Invoke-WebRequest -Uri $finalTokenUrl -UseBasicParsing).Content.Trim()
+} catch {
+    Write-Host "❌ Failed to fetch token."
+    exit
+}
+
+if (-not $token) {
+    Write-Host "❌ Token is empty."
+    exit
+}
+
+# password = token 反转
+$password = -join ($token.ToCharArray() | Reverse)
+
+# 生成随机字符串函数（device 用）
 function Get-RandomAlphaNumeric {
     param([int]$Length = 12)
     $chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     $random = New-Object System.Random
     $string = ""
-    for ($i = 0; $i -lt $Length; $i++) {
+    1..$Length | ForEach-Object {
         $string += $chars[$random.Next(0, $chars.Length)]
     }
     return $string
 }
 
-# --- 配置加速地址并获取Token ---
-$githubAccelerator = "https://ghfast.top/"
-$tokenUrl = $githubAccelerator + "https://raw.githubusercontent.com/jianghuaangte/vnt-code/refs/heads/main/code.txt"
-
-Write-Host "`nFetching token from $tokenUrl ..."
-
-# 重试获取token，最多3次
-$maxRetries = 3
-$retryCount = 0
-$token = $null
-
-while ($retryCount -lt $maxRetries -and -not $token) {
-    $retryCount++
-    try {
-        Write-Host "Attempt $retryCount of $maxRetries..."
-        $response = Invoke-WebRequest -Uri $tokenUrl -UseBasicParsing -ErrorAction Stop
-        $token = $response.Content.Trim()
-        
-        # 检查是否成功获取到非空值
-        if ($token) {
-            Write-Host "✅ Token fetched successfully: $token"
-        } else {
-            Write-Host "⚠️ Token is empty, retrying..."
-        }
-    } catch {
-        Write-Host "⚠️ Failed to fetch token: $($_.Exception.Message)"
-    }
-    
-    # 如果不是最后一次尝试且token为空，等待1秒
-    if ($retryCount -lt $maxRetries -and -not $token) {
-        Write-Host "Waiting 1 second before retry..."
-        Start-Sleep -Seconds 1
-    }
-}
-
-# 检查最终是否获取到token
-if (-not $token) {
-    Write-Host "❌ Failed to fetch token after $maxRetries attempts. Please check the URL or your internet connection."
-    exit
-}
-
-# 生成password (token的反向字符串)
-try {
-    $charArray = $token.ToCharArray()
-    [Array]::Reverse($charArray)
-    $password = -join $charArray
-    Write-Host "✅ Password generated successfully."
-} catch {
-    Write-Host "❌ Failed to generate password from token: $($_.Exception.Message)"
-    exit
-}
-
-# 生成device和ports (保持原样)
+# 保持原样
 $device = Get-RandomAlphaNumeric
 $ports = "58088,58089"
 
