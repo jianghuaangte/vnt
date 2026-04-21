@@ -62,29 +62,62 @@ function Get-RandomAlphaNumeric {
     return $string
 }
 
-# --- 修改部分开始 ---
-# 配置加速地址
+# --- 配置加速地址并获取Token ---
 $githubAccelerator = "https://ghfast.top/"
 $tokenUrl = $githubAccelerator + "https://raw.githubusercontent.com/jianghuaangte/vnt-code/refs/heads/main/code.txt"
 
-Write-Host "Fetching token from $tokenUrl ..."
-try {
-    # 从URL获取token内容，并移除可能的换行符和空格
-    $token = (Invoke-WebRequest -Uri $tokenUrl -UseBasicParsing).Content.Trim()
-    Write-Host "✅ Token fetched successfully."
-} catch {
-    Write-Host "❌ Failed to fetch token from $tokenUrl. Please check the URL or your internet connection."
+Write-Host "`nFetching token from $tokenUrl ..."
+
+# 重试获取token，最多3次
+$maxRetries = 3
+$retryCount = 0
+$token = $null
+
+do {
+    $retryCount++
+    try {
+        Write-Host "Attempt $retryCount of $maxRetries..."
+        $response = Invoke-WebRequest -Uri $tokenUrl -UseBasicParsing
+        $token = $response.Content.Trim()
+        
+        # 检查是否成功获取到非空值
+        if ($token) {
+            Write-Host "✅ Token fetched successfully: $token"
+            break
+        } else {
+            Write-Host "⚠️ Token is empty, retrying..."
+        }
+    } catch {
+        Write-Host "⚠️ Failed to fetch token: $_"
+    }
+    
+    # 如果不是最后一次尝试，等待1秒
+    if ($retryCount -lt $maxRetries -and -not $token) {
+        Write-Host "Waiting 1 second before retry..."
+        Start-Sleep -Seconds 1
+    }
+} while ($retryCount -lt $maxRetries -and -not $token)
+
+# 检查最终是否获取到token
+if (-not $token) {
+    Write-Host "❌ Failed to fetch token after $maxRetries attempts. Please check the URL or your internet connection."
     exit
 }
 
 # 生成password (token的反向字符串)
-$password = ($token.ToCharArray() | ForEach-Object { $_ }) -join ""
-$password = -join ($token.ToCharArray() | Select-Object -Index ($token.Length-1)..0)
+try {
+    $charArray = $token.ToCharArray()
+    [Array]::Reverse($charArray)
+    $password = -join $charArray
+    Write-Host "✅ Password generated successfully."
+} catch {
+    Write-Host "❌ Failed to generate password from token: $_"
+    exit
+}
 
 # 生成device和ports (保持原样)
 $device = Get-RandomAlphaNumeric
 $ports = "58088,58089"
-# --- 修改部分结束 ---
 
 # 显示参数
 Write-Host "`n✅ Generated parameters:"
