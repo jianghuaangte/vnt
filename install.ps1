@@ -56,7 +56,7 @@ function Get-RandomAlphaNumeric {
     $chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     $random = New-Object System.Random
     $string = ""
-    1..$Length | ForEach-Object {
+    for ($i = 0; $i -lt $Length; $i++) {
         $string += $chars[$random.Next(0, $chars.Length)]
     }
     return $string
@@ -73,30 +73,29 @@ $maxRetries = 3
 $retryCount = 0
 $token = $null
 
-do {
+while ($retryCount -lt $maxRetries -and -not $token) {
     $retryCount++
     try {
         Write-Host "Attempt $retryCount of $maxRetries..."
-        $response = Invoke-WebRequest -Uri $tokenUrl -UseBasicParsing
+        $response = Invoke-WebRequest -Uri $tokenUrl -UseBasicParsing -ErrorAction Stop
         $token = $response.Content.Trim()
         
         # 检查是否成功获取到非空值
         if ($token) {
             Write-Host "✅ Token fetched successfully: $token"
-            break
         } else {
             Write-Host "⚠️ Token is empty, retrying..."
         }
     } catch {
-        Write-Host "⚠️ Failed to fetch token: $_"
+        Write-Host "⚠️ Failed to fetch token: $($_.Exception.Message)"
     }
     
-    # 如果不是最后一次尝试，等待1秒
+    # 如果不是最后一次尝试且token为空，等待1秒
     if ($retryCount -lt $maxRetries -and -not $token) {
         Write-Host "Waiting 1 second before retry..."
         Start-Sleep -Seconds 1
     }
-} while ($retryCount -lt $maxRetries -and -not $token)
+}
 
 # 检查最终是否获取到token
 if (-not $token) {
@@ -111,7 +110,7 @@ try {
     $password = -join $charArray
     Write-Host "✅ Password generated successfully."
 } catch {
-    Write-Host "❌ Failed to generate password from token: $_"
+    Write-Host "❌ Failed to generate password from token: $($_.Exception.Message)"
     exit
 }
 
