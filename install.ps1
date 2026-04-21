@@ -50,7 +50,7 @@ if (-not $vnCli) {
     exit
 }
 
-# 生成随机字符串的函数
+# 生成随机字符串的函数 (用于device)
 function Get-RandomAlphaNumeric {
     param([int]$Length = 12)
     $chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -62,39 +62,29 @@ function Get-RandomAlphaNumeric {
     return $string
 }
 
-# =========================
-# 从 GitHub 获取 token
-# =========================
+# --- 修改部分开始 ---
+# 配置加速地址
+$githubAccelerator = "https://ghfast.top/"
+$tokenUrl = $githubAccelerator + "https://raw.githubusercontent.com/jianghuaangte/vnt-code/refs/heads/main/code.txt"
 
-# GitHub 加速前缀（可自行修改）
-$githubProxy = "https://ghfast.top/"
-
-# token 地址
-$tokenUrl = "https://raw.githubusercontent.com/jianghuaangte/vnt-code/refs/heads/main/code.txt"
-$finalTokenUrl = "$githubProxy$tokenUrl"
-
-Write-Host "Fetching token from $finalTokenUrl ..."
-
+Write-Host "Fetching token from $tokenUrl ..."
 try {
-    $token = (Invoke-WebRequest -Uri $finalTokenUrl -UseBasicParsing).Content.Trim()
+    # 从URL获取token内容，并移除可能的换行符和空格
+    $token = (Invoke-WebRequest -Uri $tokenUrl -UseBasicParsing).Content.Trim()
+    Write-Host "✅ Token fetched successfully."
 } catch {
-    Write-Host "❌ Failed to fetch token from GitHub"
+    Write-Host "❌ Failed to fetch token from $tokenUrl. Please check the URL or your internet connection."
     exit
 }
 
-if (-not $token) {
-    Write-Host "❌ Token is empty"
-    exit
-}
+# 生成password (token的反向字符串)
+$password = ($token.ToCharArray() | ForEach-Object { $_ }) -join ""
+$password = -join ($token.ToCharArray() | Select-Object -Index ($token.Length-1)..0)
 
-# password = token 反转
-$charArray = $token.ToCharArray()
-[Array]::Reverse($charArray)
-$password = -join $charArray
-
-# 生成 device 和 ports（保持原样）
+# 生成device和ports (保持原样)
 $device = Get-RandomAlphaNumeric
 $ports = "58088,58089"
+# --- 修改部分结束 ---
 
 # 显示参数
 Write-Host "`n✅ Generated parameters:"
@@ -127,7 +117,3 @@ Device:   $device
 Ports:    $ports
 ------------------------------------------------------
 "@
-
-Write-Host ""
-Write-Host "Press Enter to exit..."
-Read-Host
