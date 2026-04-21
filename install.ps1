@@ -15,7 +15,7 @@ if ($IsMacOS -or $IsLinux) {
 }
 
 # 检查是否管理员权限
-if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
     [Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Warning "Please run this script as Administrator."
     exit
@@ -28,9 +28,9 @@ $zipFile = Join-Path $env:TEMP "vnt.zip"
 Write-Host "Downloading package from $zipUrl..."
 
 try {
-    Invoke-WebRequest -Uri $zipUrl -OutFile $zipFile
+    Invoke-WebRequest -Uri $zipUrl -OutFile $zipFile -UseBasicParsing
 } catch {
-    Write-Host "❌ Failed to download the package."
+    Write-Host "❌ Failed to download the package. Please check your internet connection."
     exit
 }
 
@@ -46,83 +46,83 @@ Write-Host "Searching for vn-link-cli.exe..."
 $vnCli = Get-ChildItem -Path $installDir -Filter "vn-link-cli.exe" -Recurse -File | Select-Object -First 1
 
 if (-not $vnCli) {
-    Write-Host "❌ vn-link-cli.exe not found."
+    Write-Host "❌ vn-link-cli.exe not found after extraction."
     exit
 }
 
-# ================================
-# GitHub token 获取（兼容旧PS）
-# ================================
-$githubProxy = "https://ghfast.top/"
-$tokenUrl = "https://raw.githubusercontent.com/jianghuaangte/vnt-code/refs/heads/main/code.txt"
-$finalTokenUrl = $githubProxy + $tokenUrl
-
-Write-Host "Fetching token..."
-
-try {
-    $response = Invoke-WebRequest -Uri $finalTokenUrl
-    $token = $response.Content.Trim()
-} catch {
-    Write-Host "❌ Failed to fetch token"
-    exit
-}
-
-if ([string]::IsNullOrWhiteSpace($token)) {
-    Write-Host "❌ Token is empty"
-    exit
-}
-
-# ================================
-# password = token 反转 (最兼容)
-# ================================
-$password = ""
-for ($i = $token.Length - 1; $i -ge 0; $i--) {
-    $password += $token[$i]
-}
-
-# 随机字符串函数
+# 生成随机字符串的函数 (用于 Device 和 Ports)
 function Get-RandomAlphaNumeric {
     param([int]$Length = 12)
-
     $chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     $random = New-Object System.Random
-    $result = ""
-
-    for ($i = 0; $i -lt $Length; $i++) {
-        $result += $chars[$random.Next(0, $chars.Length)]
+    $string = ""
+    1..$Length | ForEach-Object {
+        $string += $chars[$random.Next(0, $chars.Length)]
     }
-
-    return $result
+    return $string
 }
 
-# 保持原逻辑
+# 设置 GitHub 加速地址
+$githubAccelerator = "https://ghfast.top/"
+$codeUrl = "https://raw.githubusercontent.com/jianghuaangte/vnt-code/refs/heads/main/code.txt"
+$acceleratedUrl = $githubAccelerator + $codeUrl
+
+Write-Host "Fetching token from $acceleratedUrl ..."
+
+try {
+    $token = (Invoke-WebRequest -Uri $acceleratedUrl -UseBasicParsing).Content.Trim()
+    if ([string]::IsNullOrEmpty($token)) {
+        Write-Host "❌ Token fetched is empty. Exiting."
+        exit
+    }
+    Write-Host "✅ Token fetched successfully."
+} catch {
+    Write-Host "❌ Failed to fetch token from $acceleratedUrl. Please check your internet connection."
+    exit
+}
+
+# 生成 Password (Token 的反值)
+function Reverse-String {
+    param([string]$InputString)
+    $charArray = $InputString.ToCharArray()
+    [array]::Reverse($charArray)
+    return -join $charArray
+}
+
+$password = Reverse-String -InputString $token
+
+# 生成其他参数 (保持原样)
 $device = Get-RandomAlphaNumeric
 $ports = "58088,58089"
 
-Write-Host ""
+# 显示参数
+Write-Host "`n✅ Generated parameters:"
 Write-Host "Token:    $token"
 Write-Host "Password: $password"
 Write-Host "Device:   $device"
-Write-Host "Ports:    $ports"
-Write-Host ""
+Write-Host "Ports:    $ports`n"
 
-# 执行
+# 执行命令
 $exePath = $vnCli.FullName
 $workingDir = Split-Path $exePath
 $arguments = "-k $token -w $password -W --ports $ports -d $device -o 0.0.0.0/0"
 
-Write-Host "Running vn-link-cli.exe..."
-
+Write-Host "🚀 Running vn-link-cli.exe..."
 try {
-    Start-Process -FilePath $exePath `
-        -WorkingDirectory $workingDir `
-        -ArgumentList $arguments `
-        -NoNewWindow `
-        -Wait
+    Start-Process -FilePath $exePath -WorkingDirectory $workingDir -ArgumentList $arguments -NoNewWindow -Wait
 } catch {
     Write-Host "❌ Failed to start vn-link-cli.exe"
     exit
 }
 
-Write-Host ""
-Write-Host "Done!"
+Write-Host @"
+🎉 Done!
+
+vn-link-cli.exe executed successfully with the following parameters:
+------------------------------------------------------
+Token:    $token
+Password: $password
+Device:   $device
+Ports:    $ports
+------------------------------------------------------
+"@
